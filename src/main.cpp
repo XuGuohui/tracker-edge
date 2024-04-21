@@ -46,30 +46,6 @@ uint8_t btn1Pin = A5;
 uint8_t btn2Pin = A6;
 uint8_t btn3Pin = A7;
 
-uint8_t senPwr = CAN_PWR;
-
-#define I2C_DEEFAULT_SLAVE_ADDRESS          0x10
-
-void writeRegister(uint8_t slaveAddr, uint8_t regAddr, uint8_t value) {
-    Wire.beginTransmission(slaveAddr);
-    Wire.write(regAddr);
-    Wire.write(value);
-    int r = Wire.endTransmission(true);
-    // Log.info("Wire.endTransmission 1: %d", r);
-}
-
-void readRegisters(uint8_t slaveAddr, uint8_t regAddr, uint8_t* value, uint8_t len) {
-    Wire.beginTransmission(slaveAddr);
-    Wire.write(regAddr);
-    uint8_t r = Wire.endTransmission(false);
-    // Log.info("Wire.endTransmission 2: %d", r);
-    uint8_t ret = Wire.requestFrom(slaveAddr, len);
-    // Log.info("Wire.requestFrom: %d", ret);
-    for (int i = 0; i < ret; i++) {
-        value[i] = Wire.read();
-    }
-}
-
 void setup()
 {
     pinMode(vibPin, OUTPUT);
