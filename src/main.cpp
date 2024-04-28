@@ -17,9 +17,9 @@
 #include "Particle.h"
 #include "tracker_config.h"
 #include "tracker.h"
-#include "tf_luna.h"
+#include "stick_manager.h"
 
-using namespace tf_luna;
+using namespace stick_manager;
 
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
@@ -40,54 +40,14 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
     { "net.ppp.client", LOG_LEVEL_INFO },
 });
 
-uint8_t vibPin = A2;
-uint8_t buzzPin = A3;
-uint8_t btn1Pin = A5;
-uint8_t btn2Pin = A6;
-uint8_t btn3Pin = A7;
-
 void setup()
 {
-    pinMode(vibPin, OUTPUT);
-    digitalWrite(vibPin, LOW); // Off
-    for (uint8_t i = 0; i < 3; i++) {
-        digitalWrite(vibPin, HIGH);
-        delay(200);
-        digitalWrite(vibPin, LOW);
-        delay(100);
-    }
-
-    pinMode(buzzPin, OUTPUT);
-    digitalWrite(buzzPin, LOW); // Off
-    tone(buzzPin, 1000, 300);
-
-    pinMode(btn1Pin, INPUT);
-    pinMode(btn2Pin, INPUT);
-    pinMode(btn3Pin, INPUT);
-
-    if (digitalRead(btn1Pin) == LOW) {
-        delay(5s); // To let user have sufficient time to connect the serial monnitor
-        TF_LUNA1.configure();
-        TF_LUNA2.configure();
-        TF_LUNA3.configure();
-    }
-
-    TF_LUNA1.init();
-    TF_LUNA2.init();
-    TF_LUNA3.init();
-
-    uint8_t sig0[5] = {'\0'};
-    TF_LUNA1.readSignature(sig0);
-    Log.info("TF-Luna Signature 0: \"%c%c%c%c\"", sig0[0], sig0[1], sig0[2], sig0[3]);
-    TF_LUNA2.readSignature(sig0);
-    Log.info("TF-Luna Signature 1: \"%c%c%c%c\"", sig0[0], sig0[1], sig0[2], sig0[3]);
-    TF_LUNA3.readSignature(sig0);
-    Log.info("TF-Luna Signature 2: \"%c%c%c%c\"", sig0[0], sig0[1], sig0[2], sig0[3]);
-
+    StickManager::instance().init();
     Tracker::instance().init();
 }
 
 void loop()
 {
+    StickManager::instance().loop();
     Tracker::instance().loop();
 }

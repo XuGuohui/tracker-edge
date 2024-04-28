@@ -20,9 +20,9 @@ using namespace tf_luna;
 
 TfLuna& TfLuna::instance(TfLunaIndex index) {
     static TfLuna inst[TF_LUNNA_NUM] = {
-        { &Wire, CAN_PWR, D8, 0x13 }, // Left
-        { &Wire, CAN_PWR, D9, 0x12 }, // Middle
-        { &Wire, CAN_PWR, A4, 0x11 }, // Right
+        { &Wire, D8, 0x13, "Left TF-Luna" },
+        { &Wire, D9, 0x12, "Middle TF-Luna" },
+        { &Wire, A4, 0x11, "Right TF-Luna" },
     };
     if (index >= TF_LUNNA_NUM) {
         auto obj = new TfLuna();
@@ -32,33 +32,47 @@ TfLuna& TfLuna::instance(TfLunaIndex index) {
 }
 
 void TfLuna::enable(bool en) const {
+    pinMode(enPin_, OUTPUT);
     if (en) {
         digitalWrite(enPin_, HIGH); // Enable the sensor
         delay(BOOT_DELAY_MS);
     } else {
         digitalWrite(enPin_, LOW);
-        delay(10);
     }
 }
 
 int TfLuna::init() {
     CHECK_TE_LUNA_TRUE(valid_, TF_LUNA_ERROR_INVALID_OBJ);
-    hwInit();
     enable();
+    if (!i2c_->isEnabled()) {
+        i2c_->begin();
+    }
+    Log.info("Wait %s to be ready...", name());
+    CHECK_TF_LUNA(waitReady());  // or delay(BOOT_DELAY_MS);
     CHECK_TF_LUNA(writeRegister(REG_LOW_POWER_MODE, 0x01)); // low power mode
     CHECK_TF_LUNA(setTriggerMode(TF_LUNA_TRIG_MODE_SOFTWARE));
+    Log.info("%s initialized", name());
     configured_ = true;
     return TF_LUNA_ERROR_NONE;
 }
 
+// NOTE: Only up to two sensors can be attached at the same time when configuring the sensors.
+// Otherwise, it may fail to configure the sensors.
 int TfLuna::configure(bool verify) {
     CHECK_TE_LUNA_TRUE(valid_, TF_LUNA_ERROR_INVALID_OBJ);
-    hwInit();
+    enable();
+    if (!i2c_->isEnabled()) {
+        i2c_->begin();
+    }
 
     TfLunaEnabledGuard guard(this);
 
+    CHECK_TF_LUNA(waitReady());  // or delay(BOOT_DELAY_MS);
+
     uint8_t sig[4];
     uint8_t expectedSlaveAddr = slaveAddr_;
+
+    Log.info("Configuring %s...", name());
 
     // Try with the default address first
     Log.info("Try with the default address 0x%02X", I2C_DEFAULT_SLAVE_ADDRESS);
@@ -86,7 +100,7 @@ int TfLuna::configure(bool verify) {
         }
     }
     if (slaveAddr_ == (I2C_SLAVE_ADDRESS_END + 1)) {
-        Log.error("Cannot address the sensor. The sensor is probably not attached");
+        Log.error("The %s is probably not attached", name());
         return TF_LUNA_ERROR_NOT_FOUND;
     }
     Log.info("Deprecated address 0x%02X found", slaveAddr_);
@@ -102,7 +116,7 @@ int TfLuna::configure(bool verify) {
         delay(BOOT_DELAY_MS);
         slaveAddr_ = expectedSlaveAddr;
         CHECK_TF_LUNA(readRegisters(REG_SIG, sig, 4));
-        Log.info("Successfully reset the sensor at 0x%02X", slaveAddr_);
+        Log.info("Successfully reset the %s at 0x%02X", name(), slaveAddr_);
     }
 
     return TF_LUNA_ERROR_NONE;
@@ -182,9 +196,12 @@ int TfLuna::readSignature(uint8_t* sig) const {
 
 
 // Private methods
-TfLuna::TfLuna(TwoWire* i2c, uint8_t powerPin, uint8_t enPin, uint8_t slaveAddr)
-        : i2c_(i2c), powerPin_(powerPin), enPin_(enPin), slaveAddr_(slaveAddr), configured_(false) {
+TfLuna::TfLuna(TwoWire* i2c, uint8_t enPin, uint8_t slaveAddr, const char* name)
+        : i2c_(i2c), enPin_(enPin), slaveAddr_(slaveAddr), configured_(false), name_(name) {
     valid_ = true;
+    if (!name) {
+        name_ = "TF-Luna";
+    }
 }
 
 TfLuna::TfLuna() {
@@ -194,14 +211,19 @@ TfLuna::TfLuna() {
 TfLuna::~TfLuna() {
 }
 
-void TfLuna::hwInit() const {
-    if (!i2c_->isEnabled()) {
-        i2c_->begin();
+int TfLuna::waitReady() const {
+    uint64_t start = millis();
+    while (readRegister(REG_SIG, nullptr) != 0 && (millis() - start < TF_LUNA_TIMEOUT_MS)) {
+        delay(10);
     }
-    pinMode(powerPin_, OUTPUT);
-    digitalWrite(powerPin_, HIGH); // On
-    pinMode(enPin_, OUTPUT);
-    // It has external pull-down resistor, so it's disabled by default.
+    if (millis() - start > TF_LUNA_TIMEOUT_MS) {
+        return TF_LUNA_ERROR_TIMEOUT;
+    }
+    return TF_LUNA_ERROR_NONE;
+}
+
+const char* TfLuna::name() const {
+    return name_;
 }
 
 int TfLuna::writeRegister(uint8_t regAddr, uint8_t value) const {

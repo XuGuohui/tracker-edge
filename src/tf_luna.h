@@ -38,6 +38,7 @@ typedef enum {
     TF_LUNA_ERROR_INVALID_ARG = -5,
     TF_LUNA_ERROR_INVALID_OBJ = -6,
     TF_LUNA_ERROR_INVALID_STATE = -7,
+    TF_LUNA_ERROR_TIMEOUT = -8,
 } TfLunaError;
 
 typedef enum {
@@ -45,6 +46,11 @@ typedef enum {
     TF_LUNA_TRIG_MODE_SOFTWARE = 1,
 } TfLunaTriggerMode;
 
+/*
+ * When there are more than two sensors are attached on the same I2C bus,
+ * the powered-off sensors may cause the bus to be unstable. To avoid this,
+ * we have to enable all of the sensors before we start the I2C communication.
+ */
 class TfLuna {
 public:
     int init();
@@ -63,22 +69,24 @@ public:
     int readError(uint16_t* error) const;
     int readSignature(uint8_t* sig) const;
     void enable(bool en = true) const;
+    const char* name() const;
 
     static TfLuna& instance(TfLunaIndex index);
 
 private:
     TfLuna();
-    TfLuna(TwoWire* i2c, uint8_t powerPin, uint8_t enPin, uint8_t slaveAddr);
+    TfLuna(TwoWire* i2c, uint8_t enPin, uint8_t slaveAddr, const char* name);
     ~TfLuna();
 
-    void hwInit() const;
+    int waitReady() const;
     int writeRegister(uint8_t regAddr, uint8_t value) const;
     int writeRegisters(uint8_t regAddr, uint8_t* value, uint8_t len) const;
     int readRegister(uint8_t regAddr, uint8_t* value) const;
     int readRegisterWord(uint8_t regAddr, uint16_t* value) const;
     int readRegisters(uint8_t regAddr, uint8_t* value, uint8_t len) const;
 
-    static constexpr uint32_t BOOT_DELAY_MS = 500;
+    static constexpr uint32_t BOOT_DELAY_MS = 50;
+    static constexpr uint32_t TF_LUNA_TIMEOUT_MS = 1000;
     static constexpr uint8_t I2C_DEFAULT_SLAVE_ADDRESS = 0x10;
     static constexpr uint8_t I2C_SLAVE_ADDRESS_START = 0x08;
     static constexpr uint8_t I2C_SLAVE_ADDRESS_END = 0x77;
@@ -102,10 +110,10 @@ private:
     static constexpr uint8_t REG_SIG = 0x3C;
 
     TwoWire* i2c_;
-    uint8_t powerPin_;
     uint8_t enPin_;
     uint8_t slaveAddr_;
     bool configured_;
+    const char* name_;
     bool valid_;
 };
 
