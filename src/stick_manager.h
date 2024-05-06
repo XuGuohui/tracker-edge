@@ -22,6 +22,7 @@ private:
 
     void rgbSos();
     void vibOn(uint32_t interval);
+    int helpMe(bool val = true);
 
     uint8_t buzzPin_;
     uint8_t vibPin_;

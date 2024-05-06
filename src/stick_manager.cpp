@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// Subscriber: https://go.particle.io/shared_apps/663878b9b029670017f3861b
+
 #include "stick_manager.h"
 
 #define SERIAL_DEBUG        0
@@ -53,7 +55,7 @@ int StickManager::init() {
     }
 #endif
 
-    RGB.control(true);
+    // RGB.control(true);
 
     if (digitalRead(btn1Pin_) == BTN_PRESSED) {
         left_->configure();
@@ -91,11 +93,18 @@ void StickManager::loop() {
             }
         }
     }
-    static uint16_t interval = 500;
-    vibOn(interval);
-    interval -= 10;
-    if (interval < 100) {
-        interval = 500;
+    // static uint16_t interval = 500;
+    // vibOn(interval);
+    // interval -= 10;
+    // if (interval < 100) {
+    //     interval = 500;
+    // }
+
+    if (digitalRead(btn1Pin_) == BTN_PRESSED) {
+        helpMe();
+    }
+    if (digitalRead(btn2Pin_) == BTN_PRESSED) {
+        helpMe(false);
     }
 }
 
@@ -120,4 +129,16 @@ void StickManager::vibOn(uint32_t interval) {
     delay(150); // FIXME: Blocking
     digitalWrite(vibPin_, VIB_OFF);
     delay(interval);
+}
+
+int StickManager::helpMe(bool val) {
+    if (Particle.connected()) {
+        if (val) {
+            Particle.publish("Alert", "helpme", PRIVATE);
+        } else {
+            Particle.publish("Alert", "cancel", PRIVATE);
+        }
+        delay(1s);
+    }
+    return 0;
 }
