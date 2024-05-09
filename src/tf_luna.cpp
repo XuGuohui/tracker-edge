@@ -49,7 +49,6 @@ int TfLuna::init() {
     }
     Log.info("Wait %s to be ready...", name());
     CHECK_TF_LUNA(waitReady());  // or delay(BOOT_DELAY_MS);
-    CHECK_TF_LUNA(writeRegister(REG_LOW_POWER_MODE, 0x01)); // low power mode
     CHECK_TF_LUNA(setTriggerMode(TF_LUNA_TRIG_MODE_SOFTWARE));
     Log.info("%s initialized", name());
     configured_ = true;
@@ -146,7 +145,18 @@ int TfLuna::setOutputFreq(uint8_t freqHz) const {
 
 int TfLuna::setTriggerMode(TfLunaTriggerMode mode) const {
     CHECK_TE_LUNA_TRUE(valid_, TF_LUNA_ERROR_INVALID_OBJ);
+    // Note: the sequence of the following settings is important
+    // 1. Set the trigger mode
+    // 2. Set the power mode
+    // 3. Set the output frequency
+    // Otherwise, the output frequency may not be set correctly
     CHECK_TF_LUNA(writeRegister(REG_TRIG_MODE, mode));
+    CHECK_TF_LUNA(writeRegister(REG_LOW_POWER_MODE, 0)); // Normal mode
+    if (mode == TF_LUNA_TRIG_MODE_SOFTWARE) {
+        CHECK_TF_LUNA(writeRegister(REG_OUTPUT_FREQ, 0)); // Set the output frequency to 0 to make sure the software trigger mdoe works
+    } else {
+        CHECK_TF_LUNA(writeRegister(REG_OUTPUT_FREQ, 2/*Hz*/));
+    }
     return TF_LUNA_ERROR_NONE;
 }
 

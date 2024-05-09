@@ -55,6 +55,10 @@ int StickManager::init() {
     }
 #endif
 
+    // Even if the sensors failed to initialized, we should still enable these threads
+    sosTh_ = Thread("rgb_thread", std::bind(&StickManager::sosThread, this), OS_THREAD_PRIORITY_DEFAULT);
+    btnTh_ = Thread("btn_thread", std::bind(&StickManager::btnThread, this), OS_THREAD_PRIORITY_DEFAULT);
+
     if (digitalRead(btn1Pin_) == BTN_PRESSED) {
         left_->configure();
         middle_->configure();
@@ -75,9 +79,6 @@ int StickManager::init() {
     }
 
     setSenseMode(SENSE_MODE_MANUAL);
-
-    sosTh_ = Thread("rgb_thread", std::bind(&StickManager::sosThread, this), OS_THREAD_PRIORITY_DEFAULT);
-    btnTh_ = Thread("btn_thread", std::bind(&StickManager::btnThread, this), OS_THREAD_PRIORITY_DEFAULT);
     senseTh_ = Thread("sense_thread", std::bind(&StickManager::senseThread, this), OS_THREAD_PRIORITY_DEFAULT);
     return 0;
 }

@@ -104,6 +104,7 @@ private:
     static constexpr uint8_t REG_SLAVE_ADDR = 0x22;
     static constexpr uint8_t REG_TRIG_MODE = 0x23;
     static constexpr uint8_t REG_SW_TRIG = 0x24;
+    static constexpr uint8_t REG_ENABLE = 0x25;
     static constexpr uint8_t REG_OUTPUT_FREQ = 0x26;
     static constexpr uint8_t REG_LOW_POWER_MODE = 0x28;
     static constexpr uint8_t REG_FAC_SETTINGS = 0x29;
