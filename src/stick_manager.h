@@ -53,6 +53,7 @@ private:
     volatile bool sos_ = false;
     volatile bool helpMe_ = false;
     volatile bool alert_ = false;
+    volatile bool skipFirstSense_ = false;
     volatile SenseMode senseMode_ = SENSE_MODE_AUTO;
 
     static constexpr uint16_t SOS_PATTERN[3] = {150, 300, 150};

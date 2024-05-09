@@ -122,6 +122,8 @@ void StickManager::senseThread(void* arg) {
                 }
                 else {
                     manager->vibMode(0);
+                    // The next first sense is not reliable
+                    manager->skipFirstSense_ = true;
                 }
             } else if (manager->senseMode_ == SENSE_MODE_AUTO) {
                 if (millis() - manager->senseWindowStart_ > AUTO_SENSE_WINDOW_MS) {
@@ -234,6 +236,10 @@ void StickManager::senseAndAction() {
                 minDist = dist;
             }
         }
+    }
+    if (skipFirstSense_) {
+        skipFirstSense_ = false;
+        return;
     }
     if (minDist > SAFE_DISTANCE_CM) {
         vibMode(0);
