@@ -48,6 +48,6 @@ void setup()
 
 void loop()
 {
-    StickManager::instance().loop();
+    // StickManager::instance().loop();
     Tracker::instance().loop();
 }
