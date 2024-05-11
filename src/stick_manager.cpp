@@ -49,6 +49,8 @@ int StickManager::init() {
     digitalWrite(senPwrPin_, HIGH); // On
     delay(50);
 
+    System.on(button_click, onButtonClick);
+
 #if SERIAL_DEBUG
     while (!Serial.isConnected()) {
         delay(1);
@@ -93,6 +95,10 @@ StickManager::StickManager(uint8_t buzzPin, uint8_t vibPin, uint8_t btn1Pin, uin
 }
 
 StickManager::~StickManager() {
+}
+
+void StickManager::onButtonClick(system_event_t ev, int button_data) {
+    StickManager::instance().setButtonPressed();
 }
 
 void StickManager::setSenseMode(SenseMode mode) {
@@ -161,17 +167,34 @@ void StickManager::btnThread(void* arg) {
                     manager->sos_ = !manager->sos_;
                 }
             }
+
             if (digitalRead(manager->btn2Pin_) == BTN_PRESSED) {
                 delay(50); // debunce
                 if (digitalRead(manager->btn2Pin_) == BTN_PRESSED) {
                     while (digitalRead(manager->btn2Pin_) == BTN_PRESSED); // Wait until the button is released
                     manager->helpMe_ = !manager->helpMe_;
+                    if (manager->helpMe_) {
+                        VibLock lock;
+                        manager->vibMode(255, 150, 3);
+                    } else {
+                        VibLock lock;
+                        manager->vibMode(255, 150, 2);
+                    }
                     if (!Particle.connected()) {
                         Particle.connect();
-                        waitFor(Particle.connected, 30000);
                     }
-                    manager->sendRemoteRequest();
+                    manager->helpMeSent_ = false;
                 }
+            }
+            manager->sendRemoteRequest();
+
+            if (manager->modeBtnPressed_) {
+                manager->modeBtnPressed_ = false;
+                manager->senseMode_++;
+                manager->senseMode_ %= (uint8_t)SENSE_MODE_MAX;
+                manager->setSenseMode((SenseMode)manager->senseMode_);
+                VibLock lock;
+                manager->vibMode(255, 150, manager->senseMode_ + 1);
             }
         }
     }
@@ -179,45 +202,47 @@ void StickManager::btnThread(void* arg) {
 
 void StickManager::sosThread(void* arg) {
     auto manager = static_cast<StickManager*>(arg);
+    uint64_t lastSosEndTime = 0;
     if (manager) {
         while (true) {
             if (manager->sos_) {
                 if (!RGB.controlled()) {
                     RGB.control(true);
                 }
-                for (uint8_t i = 0; i < 3; i++) {
-                    for (uint8_t j = 0; j < 3; j++) {
-                        if (!manager->sos_) {
-                            break;
-                        }
-                        RGB.color(255, 0, 0);
-                        tone(manager->buzzPin_, 1000, 2000/*duration*/);
-                        manager->vibMode(255);
-                        delay(manager->SOS_PATTERN[i]);
-
-                        if (!manager->sos_) {
-                            break;
-                        }
-                        RGB.color(0, 0, 0);
-                        noTone(manager->buzzPin_);
-                        digitalWrite(manager->vibPin_, VIB_OFF);
-                        manager->vibMode(0);
-                        if (i == 0 && j == 2) {
-                            delay(manager->SOS_PATTERN[i + 1]);
-                        } else {
+                if (millis() - lastSosEndTime > SOS_INNTERVAL_MS) {
+                    for (uint8_t i = 0; i < 3; i++) {
+                        for (uint8_t j = 0; j < 3; j++) {
+                            if (!manager->sos_) {
+                                break;
+                            }
+                            RGB.color(255, 0, 0);
+                            tone(manager->buzzPin_, 1000, 2000/*duration*/);
+                            manager->vibMode(255);
                             delay(manager->SOS_PATTERN[i]);
+
+                            if (!manager->sos_) {
+                                break;
+                            }
+                            RGB.color(0, 0, 0);
+                            noTone(manager->buzzPin_);
+                            digitalWrite(manager->vibPin_, VIB_OFF);
+                            manager->vibMode(0);
+                            if (i == 0 && j == 2) {
+                                delay(manager->SOS_PATTERN[i + 1]);
+                            } else {
+                                delay(manager->SOS_PATTERN[i]);
+                            }
                         }
                     }
+                    lastSosEndTime = millis();
+                    RGB.color(0, 0, 0);
+                    noTone(manager->buzzPin_);
+                    manager->vibMode(0);
+                } else {
+                    delay(10);
                 }
-                RGB.color(0, 0, 0);
-                noTone(manager->buzzPin_);
-                manager->vibMode(0);
             } else {
                 RGB.control(false);
-            }
-            if (manager->sos_) {
-                delay(1s);
-            } else {
                 delay(10);
             }
         }
@@ -254,27 +279,14 @@ void StickManager::senseAndAction() {
 }
 
 int StickManager::sendRemoteRequest() {
-    auto sos = sos_;
-    auto alert = alert_;
-    if (Particle.connected()) {
-        sos_ = false;
-        if (sos || alert) {
-            vibMutex_.lock();
-            vibMode(0);
-            delay(1s);
-        }
+    if (Particle.connected() && !helpMeSent_) {
+        VibLock lock;
         if (helpMe_) {
             Particle.publish("Alert", "helpme", PRIVATE);
-            vibMode(255, 200, 3);
         } else {
             Particle.publish("Alert", "cancel", PRIVATE);
-            vibMode(255, 200, 2);
         }
-        if (sos || alert) {
-            delay(1s);
-            vibMutex_.unlock();
-        }
-        sos_ = sos;
+        helpMeSent_ = true;
     }
     return 0;
 }
