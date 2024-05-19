@@ -18,6 +18,7 @@
 #include "tracker_config.h"
 #include "tracker.h"
 #include "stick_manager.h"
+#include "BleLogging.h"
 
 using namespace stick_manager;
 
@@ -40,13 +41,20 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
     { "net.ppp.client", LOG_LEVEL_INFO },
 });
 
+BleLogging<4096> bleLogHandler(LOG_LEVEL_ERROR, {
+    { "app.stick", LOG_LEVEL_TRACE },
+    { "app.tf",  LOG_LEVEL_TRACE },
+});
+
 void setup()
 {
+    bleLogHandler.setup();
     StickManager::instance().init();
     Tracker::instance().init();
 }
 
 void loop()
 {
+    bleLogHandler.loop();
     Tracker::instance().loop();
 }

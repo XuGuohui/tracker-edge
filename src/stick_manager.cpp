@@ -22,6 +22,8 @@
 
 using namespace stick_manager;
 
+static Logger stickLog("app.stick");
+
 StickManager& StickManager::instance() {
     static StickManager inst(A3, A2, A5, A6, A7, CAN_PWR, &TF_LUNA1, &TF_LUNA2, &TF_LUNA3);
     return inst;
@@ -73,12 +75,12 @@ int StickManager::init() {
     }
     for (const auto inst : tfLunas) {
         if (inst->init() < 0) {
-            Log.error("Failed to initialize %s", inst->name());
+            stickLog.error("Failed to initialize %s", inst->name());
             return -1;
         }
         uint8_t sig[5] = {'\0'};
         inst->readSignature(sig);
-        Log.info("%s Signature: \"%s\"", inst->name(), sig);
+        stickLog.info("%s Signature: \"%s\"", inst->name(), sig);
     }
 
     setSenseMode(SENSE_MODE_MANUAL);
@@ -257,7 +259,7 @@ void StickManager::senseAndAction() {
             delay(10);
             uint16_t dist = 0;
             inst->readDistance(&dist);
-            Log.info("%s distance: %dcm", inst->name(), dist);
+            stickLog.info("%s distance: %dcm", inst->name(), dist);
             if (dist < minDist) {
                 minDist = dist;
             }

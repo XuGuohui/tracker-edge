@@ -18,6 +18,8 @@
 
 using namespace tf_luna;
 
+static Logger tflunaLog("app.tf");
+
 TfLuna& TfLuna::instance(TfLunaIndex index) {
     static TfLuna inst[TF_LUNNA_NUM] = {
         { &Wire, D8, 0x13, "Left TF-Luna" },
@@ -47,10 +49,10 @@ int TfLuna::init() {
     if (!i2c_->isEnabled()) {
         i2c_->begin();
     }
-    Log.info("Wait %s to be ready...", name());
+    tflunaLog.info("Wait %s to be ready...", name());
     CHECK_TF_LUNA(waitReady());  // or delay(BOOT_DELAY_MS);
     CHECK_TF_LUNA(setTriggerMode(TF_LUNA_TRIG_MODE_SOFTWARE));
-    Log.info("%s initialized", name());
+    tflunaLog.info("%s initialized", name());
     configured_ = true;
     return TF_LUNA_ERROR_NONE;
 }
@@ -70,18 +72,18 @@ int TfLuna::configure(bool verify) {
     uint8_t sig[4];
     uint8_t expectedSlaveAddr = slaveAddr_;
 
-    Log.info("Configuring %s...", name());
+    tflunaLog.info("Configuring %s...", name());
 
     // Try with the default address first
-    Log.info("Try with the default address 0x%02X", I2C_DEFAULT_SLAVE_ADDRESS);
+    tflunaLog.info("Try with the default address 0x%02X", I2C_DEFAULT_SLAVE_ADDRESS);
     slaveAddr_ = I2C_DEFAULT_SLAVE_ADDRESS;
     if (readRegisters(REG_SIG, sig, 4) != 0) {
         // Try with the allocated address
-        Log.info("Try with the allocated address 0x%02X", expectedSlaveAddr);
+        tflunaLog.info("Try with the allocated address 0x%02X", expectedSlaveAddr);
         slaveAddr_ = expectedSlaveAddr;
         if (readRegisters(REG_SIG, sig, 4) != 0) {
             // Traverse all the other potential slave addresses
-            Log.info("Try with other addresses");
+            tflunaLog.info("Try with other addresses");
             for (uint8_t addr = I2C_SLAVE_ADDRESS_START; addr <= I2C_SLAVE_ADDRESS_END + 1; addr++) {
                 if (addr == I2C_DEFAULT_SLAVE_ADDRESS || addr == slaveAddr_) {
                     continue;
@@ -93,31 +95,31 @@ int TfLuna::configure(bool verify) {
             }
         } else {
             // The slave address is not changed, i.e. the non-volatile settings are still valid
-            Log.info("Non-volatile settings are still valid");
+            tflunaLog.info("Non-volatile settings are still valid");
             return TF_LUNA_ERROR_NONE;
         }
     }
     if (slaveAddr_ == (I2C_SLAVE_ADDRESS_END + 1)) {
-        Log.error("The %s is probably not attached", name());
+        tflunaLog.error("The %s is probably not attached", name());
         return TF_LUNA_ERROR_NOT_FOUND;
     }
-    Log.info("Deprecated address 0x%02X found, set to 0x%02X", slaveAddr_, expectedSlaveAddr);
+    tflunaLog.info("Deprecated address 0x%02X found, set to 0x%02X", slaveAddr_, expectedSlaveAddr);
 
     CHECK_TF_LUNA(writeRegister(REG_SLAVE_ADDR, expectedSlaveAddr)); // Set new slave address, applied after reboot
     slaveAddr_ = expectedSlaveAddr;
-    Log.info("Waiting to be ready...");
+    tflunaLog.info("Waiting to be ready...");
     CHECK_TF_LUNA(waitReady());
-    Log.info("Saving config to non-volatile memory...");
+    tflunaLog.info("Saving config to non-volatile memory...");
     CHECK_TF_LUNA(writeRegister(REG_SAVE_TO_NVM, 0x01)); // Save to non-volatile memory
     delay(50); // Make sure the settings are saved
 
     // Verify the new settings
     if (verify) {
-        Log.info("Rebooting...");
+        tflunaLog.info("Rebooting...");
         CHECK_TF_LUNA(writeRegister(REG_REBOOT, 0x02)); // Reboot
-        Log.info("Waiting to be ready...");
+        tflunaLog.info("Waiting to be ready...");
         CHECK_TF_LUNA(waitReady());
-        Log.info("Successfully reset the %s at 0x%02X", name(), slaveAddr_);
+        tflunaLog.info("Successfully reset the %s at 0x%02X", name(), slaveAddr_);
     }
 
     return TF_LUNA_ERROR_NONE;
@@ -244,7 +246,7 @@ int TfLuna::writeRegister(uint8_t regAddr, uint8_t value) const {
     i2c_->write(value);
     int r = i2c_->endTransmission(true);
     if (r != 0) {
-        // Log.error("i2c_->endTransmission: %d", r);
+        // tflunaLog.error("i2c_->endTransmission: %d", r);
         return TF_LUNA_ERROR_I2C_WRITE;
     }
     return TF_LUNA_ERROR_NONE;
@@ -256,7 +258,7 @@ int TfLuna::writeRegisters(uint8_t regAddr, uint8_t* value, uint8_t len) const {
     i2c_->write(value, len);
     int r = i2c_->endTransmission(true);
     if (r != 0) {
-        // Log.error("i2c_->endTransmission: %d", r);
+        // tflunaLog.error("i2c_->endTransmission: %d", r);
         return TF_LUNA_ERROR_I2C_WRITE;
     }
     return TF_LUNA_ERROR_NONE;
@@ -267,12 +269,12 @@ int TfLuna::readRegister(uint8_t regAddr, uint8_t* value) const {
     i2c_->write(regAddr);
     int r = i2c_->endTransmission(false);
     if (r != 0) {
-        // Log.error("i2c_->endTransmission: %d", r);
+        // tflunaLog.error("i2c_->endTransmission: %d", r);
         return TF_LUNA_ERROR_I2C_WRITE;
     }
     r = i2c_->requestFrom(slaveAddr_, 1);
     if (r != 1) {
-        // Log.error("i2c_->requestFrom: %d", r);
+        // tflunaLog.error("i2c_->requestFrom: %d", r);
         return TF_LUNA_ERROR_I2C_READ;
     }
     *value = i2c_->read();
@@ -291,12 +293,12 @@ int TfLuna::readRegisters(uint8_t regAddr, uint8_t* value, uint8_t len) const {
     i2c_->write(regAddr);
     uint8_t r = i2c_->endTransmission(false);
     if (r != 0) {
-        // Log.error("i2c_->endTransmission: %d", r);
+        // tflunaLog.error("i2c_->endTransmission: %d", r);
         return TF_LUNA_ERROR_I2C_WRITE;
     }
     uint8_t ret = i2c_->requestFrom(slaveAddr_, len);
     if (ret != len) {
-        // Log.error("i2c_->requestFrom: %d", ret);
+        // tflunaLog.error("i2c_->requestFrom: %d", ret);
         return TF_LUNA_ERROR_I2C_READ;
     }
     for (int i = 0; i < ret; i++) {
