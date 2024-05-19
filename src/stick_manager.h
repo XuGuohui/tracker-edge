@@ -51,10 +51,12 @@ private:
     int sendRemoteRequest();
     void setSenseMode(SenseMode mode);
     void senseAndAction();
+    void updateSettings(TfLuna* tfLuna, const uint8_t* data, size_t len);
     static void sosThread(void* arg);
     static void btnThread(void* arg);
     static void senseThread(void* arg);
     static void onButtonClick(system_event_t ev, int button_data);
+    static void onDataReceivedStatic(const uint8_t* data, size_t len, const BlePeerDevice& peer, void* context);
 
     uint8_t buzzPin_;
     uint8_t vibPin_;
@@ -100,12 +102,17 @@ private:
     static constexpr uint64_t AUTO_SENSE_QUIET_MS = 0;
 
     // Distance more than this value will not trigger alert
-    static constexpr uint32_t SAFE_DISTANCE_CM[3] = {150, 150, 150};
+    uint32_t safeDistCm[3] = {150, 150, 150};
     // Distance more than this value will trigger slight alert.
     // And Distance less than this value will trigger strong alert.
-    static constexpr uint32_t RISK_DISTANCE_CM[3] = {50, 50, 50};
+    uint32_t riskDistCm[3] = {50, 50, 50};
 
     static constexpr uint32_t SOS_INNTERVAL_MS = 1000;
+
+    const char* SVC_UUID = "F0010000-5f64-4ce6-a16f-021a73b2e219";
+    const char* TF_LUNA1_UUID = "F0010001-5f64-4ce6-a16f-021a73b2e219";
+    const char* TF_LUNA2_UUID = "F0010002-5f64-4ce6-a16f-021a73b2e219";
+    const char* TF_LUNA3_UUID = "F0010003-5f64-4ce6-a16f-021a73b2e219";
 };
 
 class VibLock {

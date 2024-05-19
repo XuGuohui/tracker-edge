@@ -29,6 +29,11 @@ StickManager& StickManager::instance() {
     return inst;
 }
 
+void StickManager::onDataReceivedStatic(const uint8_t* data, size_t len, const BlePeerDevice& peer, void* context) {
+	auto tfLuna = (TfLuna*)context;
+	StickManager::instance().updateSettings(tfLuna, data, len);
+}
+
 int StickManager::init() {
     // Buzzer
     pinMode(buzzPin_, OUTPUT);
@@ -53,10 +58,19 @@ int StickManager::init() {
 
     System.on(button_click, onButtonClick);
 
+    BleCharacteristic tfLuna1Char("TF-Luna1", BleCharacteristicProperty::WRITE_WO_RSP, TF_LUNA1_UUID, SVC_UUID, onDataReceivedStatic, &TF_LUNA1);
+    BleCharacteristic tfLuna2Char("TF-Luna2", BleCharacteristicProperty::WRITE_WO_RSP, TF_LUNA2_UUID, SVC_UUID, onDataReceivedStatic, &TF_LUNA2);
+    BleCharacteristic tfLuna3Char("TF-Luna3", BleCharacteristicProperty::WRITE_WO_RSP, TF_LUNA3_UUID, SVC_UUID, onDataReceivedStatic, &TF_LUNA3);
+    BLE.addCharacteristic(tfLuna1Char);
+    BLE.addCharacteristic(tfLuna2Char);
+    BLE.addCharacteristic(tfLuna3Char);
+    BLE.advertise();
+
 #if SERIAL_DEBUG
-    while (!Serial.isConnected()) {
+    while (!Serial.isConnected() && !BLE.connected()) {
         delay(1);
     }
+    delay(2s);
 #endif
 
     if (digitalRead(btn1Pin_) == BTN_PRESSED) {
@@ -252,6 +266,22 @@ void StickManager::sosThread(void* arg) {
     }
 }
 
+void StickManager::updateSettings(TfLuna* tfLuna, const uint8_t* data, size_t len) {
+    if (len != 2) {
+        return;
+    }
+    uint8_t idx = 0;
+    if (tfLuna == left_) {
+        idx = 0;
+    } else if (tfLuna == middle_) {
+        idx = 1;
+    } else if (tfLuna == right_) {
+        idx = 2;
+    }
+    safeDistCm[idx] = data[0];
+    riskDistCm[idx] = data[1];
+}
+
 void StickManager::senseAndAction() {
     if (skipFirstSense_) {
         skipFirstSense_ = false;
@@ -273,10 +303,10 @@ void StickManager::senseAndAction() {
             uint16_t dist = 0;
             tfLunas[i]->readDistance(&dist);
             stickLog.info("%s distance: %dcm", tfLunas[i]->name(), dist);
-            if (dist > SAFE_DISTANCE_CM[i]) {
+            if (dist > safeDistCm[i]) {
                 // Continue
             } else {
-                if (dist > RISK_DISTANCE_CM[i]) {
+                if (dist > riskDistCm[i]) {
                     if (alertLevel < 1) {
                         alertLevel = 1;
                         tfLunaIdx = i;

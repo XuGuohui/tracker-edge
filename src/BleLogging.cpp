@@ -27,7 +27,7 @@ void BleLoggingBase::setup() {
 
     BleAdvertisingData data;
     data.appendServiceUUID(serviceUuid);
-    BLE.advertise(&data);
+    BLE.setAdvertisingData(data);
 }
 
 void BleLoggingBase::loop() {
