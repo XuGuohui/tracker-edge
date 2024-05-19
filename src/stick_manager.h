@@ -100,10 +100,10 @@ private:
     static constexpr uint64_t AUTO_SENSE_QUIET_MS = 0;
 
     // Distance more than this value will not trigger alert
-    static constexpr uint32_t SAFE_DISTANCE_CM = 150;
+    static constexpr uint32_t SAFE_DISTANCE_CM[3] = {150, 150, 150};
     // Distance more than this value will trigger slight alert.
     // And Distance less than this value will trigger strong alert.
-    static constexpr uint32_t RISK_DISTANCE_CM = 50;
+    static constexpr uint32_t RISK_DISTANCE_CM[3] = {50, 50, 50};
 
     static constexpr uint32_t SOS_INNTERVAL_MS = 1000;
 };

@@ -253,31 +253,58 @@ void StickManager::sosThread(void* arg) {
 }
 
 void StickManager::senseAndAction() {
-    uint16_t minDist = 255;
-    for (const auto inst : tfLunas) {
-        if (inst->triggerMeasurement() == 0) {
+    if (skipFirstSense_) {
+        skipFirstSense_ = false;
+        for (const auto inst : tfLunas) {
+            if (inst->triggerMeasurement() == 0) {
+                delay(10);
+                uint16_t dist = 0;
+                inst->readDistance(&dist);
+                (void)dist;
+            }
+            return;
+        }
+    }
+    uint8_t alertLevel = 0;
+    uint8_t tfLunaIdx = 0;
+    for (uint8_t i = 0; i < 3; i++) {
+        if (tfLunas[i]->triggerMeasurement() == 0) {
             delay(10);
             uint16_t dist = 0;
-            inst->readDistance(&dist);
-            stickLog.info("%s distance: %dcm", inst->name(), dist);
-            if (dist < minDist) {
-                minDist = dist;
+            tfLunas[i]->readDistance(&dist);
+            stickLog.info("%s distance: %dcm", tfLunas[i]->name(), dist);
+            if (dist > SAFE_DISTANCE_CM[i]) {
+                // Continue
+            } else {
+                if (dist > RISK_DISTANCE_CM[i]) {
+                    if (alertLevel < 1) {
+                        alertLevel = 1;
+                        tfLunaIdx = i;
+                    }
+                } else {
+                    if (alertLevel < 2) {
+                        alertLevel = 2;
+                        tfLunaIdx = i;
+                    }
+                }
             }
         }
     }
-    if (skipFirstSense_) {
-        skipFirstSense_ = false;
-        return;
-    }
-    if (minDist > SAFE_DISTANCE_CM) {
+    if (alertLevel == 0) {
         vibMode(0);
         alert_ = false;
         return;
-    } else if (minDist > RISK_DISTANCE_CM) {
-        vibMode(128);
-    } else {
-        vibMode(255);
     }
+    uint8_t strength = ((alertLevel == 1) ? 160 : 255);
+    uint16_t interval = 0;
+    if (tfLunaIdx == 0) {
+        interval = 0;
+    } else if (tfLunaIdx == 1) {
+        interval = 1;
+    } else {
+        interval = 50;
+    }
+    vibMode(strength, interval, interval == 0 ? 0 : 1);
     alert_ = true;
 }
 
@@ -308,7 +335,7 @@ void StickManager::vibMode(uint8_t strength, uint16_t interval, uint16_t pulses)
     }
     for (uint32_t i = 0; i < pulses; i++) {
         analogWrite(vibPin_, strength, 1000/*Hz*/);
-        delay(interval);
+        delay(100);
         digitalWrite(vibPin_, VIB_OFF);
         delay(interval);
     }
