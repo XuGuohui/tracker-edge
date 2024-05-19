@@ -57,15 +57,16 @@ int StickManager::init() {
     }
 #endif
 
-    // Even if the sensors failed to initialized, we should still enable these threads
-    sosTh_ = Thread("rgb_thread", std::bind(&StickManager::sosThread, this), OS_THREAD_PRIORITY_DEFAULT);
-    btnTh_ = Thread("btn_thread", std::bind(&StickManager::btnThread, this), OS_THREAD_PRIORITY_DEFAULT);
-
     if (digitalRead(btn1Pin_) == BTN_PRESSED) {
         left_->configure();
         middle_->configure();
         right_->configure();
     }
+
+    // Even if the sensors failed to initialized, we should still enable these threads
+    sosTh_ = Thread("rgb_thread", std::bind(&StickManager::sosThread, this), OS_THREAD_PRIORITY_DEFAULT);
+    btnTh_ = Thread("btn_thread", std::bind(&StickManager::btnThread, this), OS_THREAD_PRIORITY_DEFAULT);
+
     // We have to enable all the sensors so that the I2C pull-ups can make the bus stable.
     for (const auto inst : tfLunas) {
         inst->enable();

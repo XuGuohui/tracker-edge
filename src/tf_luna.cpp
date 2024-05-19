@@ -65,8 +65,7 @@ int TfLuna::configure(bool verify) {
     }
 
     TfLunaEnabledGuard guard(this);
-
-    CHECK_TF_LUNA(waitReady());  // or delay(BOOT_DELAY_MS);
+    delay(2s);
 
     uint8_t sig[4];
     uint8_t expectedSlaveAddr = slaveAddr_;
@@ -102,19 +101,22 @@ int TfLuna::configure(bool verify) {
         Log.error("The %s is probably not attached", name());
         return TF_LUNA_ERROR_NOT_FOUND;
     }
-    Log.info("Deprecated address 0x%02X found", slaveAddr_);
+    Log.info("Deprecated address 0x%02X found, set to 0x%02X", slaveAddr_, expectedSlaveAddr);
 
     CHECK_TF_LUNA(writeRegister(REG_SLAVE_ADDR, expectedSlaveAddr)); // Set new slave address, applied after reboot
-    delay(10); // To make sure the new slave address takes effect
     slaveAddr_ = expectedSlaveAddr;
+    Log.info("Waiting to be ready...");
+    CHECK_TF_LUNA(waitReady());
+    Log.info("Saving config to non-volatile memory...");
     CHECK_TF_LUNA(writeRegister(REG_SAVE_TO_NVM, 0x01)); // Save to non-volatile memory
+    delay(50); // Make sure the settings are saved
 
     // Verify the new settings
     if (verify) {
+        Log.info("Rebooting...");
         CHECK_TF_LUNA(writeRegister(REG_REBOOT, 0x02)); // Reboot
-        delay(BOOT_DELAY_MS);
-        slaveAddr_ = expectedSlaveAddr;
-        CHECK_TF_LUNA(readRegisters(REG_SIG, sig, 4));
+        Log.info("Waiting to be ready...");
+        CHECK_TF_LUNA(waitReady());
         Log.info("Successfully reset the %s at 0x%02X", name(), slaveAddr_);
     }
 
